@@ -1,4 +1,4 @@
-﻿using MyWay.Helpers;
+using MyWay.Helpers;
 using System;
 using System.Drawing;
 using System.IO;
@@ -9,6 +9,7 @@ namespace MyWay
 {
 	public partial class Form1 : Form
 	{
+
 	
 		// Loads registry functions
 		private Regis regStuff = new Regis();
@@ -19,11 +20,9 @@ namespace MyWay
 		// Watcher action toggles
 		private bool watchNumL = false;
 
-
 		public Form1()
 		{
-			InitializeComponent();
-			
+			InitializeComponent();			
 		}
 
 		// If the preference matches the yesno, everything is fine. Otherwise notate the disparity
@@ -234,6 +233,7 @@ namespace MyWay
 			if (prefs.GetPref("ForceNumLockAlwaysOn") == "yes")
 				watchNumL = true;
 			FixedNumL();
+
 		}
 
 

@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "dgSpecHash": "UTpWXvNNkE8P75sGw0iuGo/xUiYEUi/Np1gmtnIwKR9wijOUwlhEo1I+yThOl2e6pN7GrtCMPkrJZDAO8zYgcg==",
+  "success": true,
+  "projectFilePath": "D:\\Stuff\\Business\\MS Work\\Working\\c#\\MyWay\\MyWay\\MyWay.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\Work\\.nuget\\packages\\microsoft.netcore.platforms\\5.0.0\\microsoft.netcore.platforms.5.0.0.nupkg.sha512",
+    "C:\\Users\\Work\\.nuget\\packages\\system.io.filesystem.accesscontrol\\5.0.0\\system.io.filesystem.accesscontrol.5.0.0.nupkg.sha512",
+    "C:\\Users\\Work\\.nuget\\packages\\system.security.accesscontrol\\5.0.0\\system.security.accesscontrol.5.0.0.nupkg.sha512",
+    "C:\\Users\\Work\\.nuget\\packages\\system.security.principal.windows\\5.0.0\\system.security.principal.windows.5.0.0.nupkg.sha512"
+  ],
+  "logs": []
+}
