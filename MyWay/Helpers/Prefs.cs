@@ -17,16 +17,19 @@ namespace MyWay.Helpers
 		public Prefs()
 		{
 			settingsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "MyWay").ToString();
-			settingsFile = settingsPath + @"\prefs.txt";
-			LoadPrefs();
+
+			settingsFile = "prefs.txt";
+			LoadPrefs(settingsFile);
 		}
 
-		public void LoadPrefs()
+		public void LoadPrefs(string prefFile)
 		{
-			if (File.Exists(settingsPath))
+			string fullPath = settingsPath + "\\" + prefFile;
+			if (File.Exists(fullPath))
 			{
 				string[] temp;
-				string[] prefsLines = File.ReadAllLines(settingsFile);
+				string[] prefsLines = File.ReadAllLines(fullPath);
+
 				foreach (string aPref in prefsLines)
 				{
 					temp = aPref.Split("=");
@@ -38,13 +41,10 @@ namespace MyWay.Helpers
 		public void SavePrefs()
 		{
 			// Creates if necessary, ignores if already there
-			Directory.CreateDirectory(settingsPath);
-			List<string> lines = new List<string>();
-			foreach (string key in userPrefs)
-			{
-				lines.Add(key + "=" + userPrefs[key]);
-			}
-			File.WriteAllLinesAsync(settingsFile, lines);
+
+			string fullPath = settingsPath + "\\" + settingsFile;
+			File.WriteAllLinesAsync(fullPath, lines);
+
 		}
 
 		public string GetPref(string name)

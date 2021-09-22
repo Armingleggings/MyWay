@@ -1,254 +1,238 @@
-﻿using System;
-using System.Drawing;
-using System.Windows.Forms;
-using System.IO;
-using Microsoft.Win32;
-using System.Runtime.InteropServices;
-using System.Diagnostics;
-using System.Security.Principal;
 using MyWay.Helpers;
+using System;
+using System.Drawing;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Windows.Forms;
 
 namespace MyWay
 {
 	public partial class Form1 : Form
 	{
-		private readonly string root = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"..\.."));
-		private string loggedInUser;
-		private SecurityIdentifier loggedInSID;
-		private string loggedInSIDStr;
-		// Loads preferences
+
+	
+		// Loads registry functions
+		private Regis regStuff = new Regis();
+		// Loads preferences from the file
 		private Prefs prefs = new Prefs();
+		// A timer to make sure the system behaves
+		private Timer watcher;
+		// Watcher action toggles
+		private bool watchNumL = false;
 
 		public Form1()
 		{
-			InitializeComponent();
+			InitializeComponent();			
 		}
 
-
-		[DllImport("Wtsapi32.dll")]
-		private static extern bool WTSQuerySessionInformation(IntPtr hServer, int sessionId, WtsInfoClass wtsInfoClass, out IntPtr ppBuffer, out int pBytesReturned);
-		[DllImport("Wtsapi32.dll")]
-		private static extern void WTSFreeMemory(IntPtr pointer);
-
-		private enum WtsInfoClass
+		// If the preference matches the yesno, everything is fine. Otherwise notate the disparity
+		private void PrefMatch(string prefName, string yesno, Label which)
 		{
-			WTSUserName = 5,
-			WTSDomainName = 7,
-		}
-
-		private static string GetUsername(int sessionId, bool prependDomain = true)
-		{
-			IntPtr buffer;
-			int strLen;
-			string username = "SYSTEM";
-			if (WTSQuerySessionInformation(IntPtr.Zero, sessionId, WtsInfoClass.WTSUserName, out buffer, out strLen) && strLen > 1)
+			// Matches the preference
+			if (prefs.GetPref(prefName) == yesno)
 			{
-				username = Marshal.PtrToStringAnsi(buffer);
-				WTSFreeMemory(buffer);
-				if (prependDomain)
-				{
-					if (WTSQuerySessionInformation(IntPtr.Zero, sessionId, WtsInfoClass.WTSDomainName, out buffer, out strLen) && strLen > 1)
-					{
-						username = Marshal.PtrToStringAnsi(buffer) + "\\" + username;
-						WTSFreeMemory(buffer);
-					}
-				}
-			}
-			return username;
-		}
-
-		private void CheckF1()
-		{
-			using (var hku = RegistryKey.OpenBaseKey(RegistryHive.Users, RegistryView.Registry64))
-			{
-				using (var F1key = hku.OpenSubKey(loggedInSIDStr + @"\SOFTWARE\Classes\TypeLib\{8cec5860-07a1-11d9-b15e-000d56bfe6ee}\1.0\0\win32"))
-				{
-					// EGADS! It's active!
-					if (F1key == null)
-					{
-						fckF1RestoreBtn.Enabled = false;
-						fckF1KillBtn.Enabled = true;
-						fckF1Status.Text = "That creepy bugger is waiting and watching.";
-						fckF1Status.BackColor = Color.FromArgb(255, 232, 0);
-					}
-					else
-					{
-						fckF1RestoreBtn.Enabled = true;
-						fckF1KillBtn.Enabled = false;
-						fckF1Status.Text = "The F1-Help function had been put in it's place.";
-						fckF1Status.BackColor = Color.FromArgb(0, 200, 50);
-						prefs.SetPref("KillF1Help", "yes");
-					}
-				}
-			}
-		}
-
-		private void fckF1KillBtn_Click(object sender, EventArgs e)
-		{
-			using (var hku = RegistryKey.OpenBaseKey(RegistryHive.Users, RegistryView.Registry64))
-			{
-				RegistryKey setter = hku.CreateSubKey(loggedInSIDStr + @"\SOFTWARE\Classes\Typelib\{8cec5860-07a1-11d9-b15e-000d56bfe6ee}\1.0\0\win32", RegistryKeyPermissionCheck.ReadWriteSubTree);
-				setter.SetValue("", "");
-				setter.Close();
-				setter = hku.CreateSubKey(loggedInSIDStr + @"\SOFTWARE\Classes\Typelib\{8cec5860-07a1-11d9-b15e-000d56bfe6ee}\1.0\0\win64", RegistryKeyPermissionCheck.ReadWriteSubTree);
-				setter.SetValue("", "");
-				setter.Close();
-			}
-			prefs.SetPref("KillF1Help", "yes");
-			CheckF1();
-		}
-
-		private void fckF1RestoreBtn_Click(object sender, EventArgs e)
-		{
-			Registry.Users.DeleteSubKeyTree(loggedInSIDStr + @"\SOFTWARE\Classes\Typelib\{8cec5860-07a1-11d9-b15e-000d56bfe6ee}\1.0\0");
-			prefs.SetPref("KillF1Help", "no");
-			CheckF1();
-		}
-
-		private void CheckCMD()
-		{
-			using (var hku = RegistryKey.OpenBaseKey(RegistryHive.ClassesRoot, RegistryView.Registry64))
-			{
-				using (var cmdKey = hku.OpenSubKey(@"\Directory\shell\OpenCmdHereAsAdmin"))
-				{
-					// EGADS! It's active!
-					if (cmdKey == null)
-					{
-						cmdEnableBtn.Enabled = true;
-						cmdDisableBtn.Enabled = false;
-						cmdStatus.Text = "CMD context is missing. Thanks Microsoft.";
-						cmdStatus.BackColor = Color.FromArgb(255, 232, 0);
-					}
-					else
-					{
-						cmdEnableBtn.Enabled = false;
-						cmdDisableBtn.Enabled = true;
-						cmdStatus.Text = "CMD context restored and ready";
-						cmdStatus.BackColor = Color.FromArgb(0, 200, 50);
-					}
-				}
-			}
-		}
-
-		private void cmdEnableBtn_Click(object sender, EventArgs e)
-		{
-			// BASED ON THE REGISTRY HACKS By Shawn Brink
-			// https://www.tenforums.com/tutorials/59686-open-command-window-here-administrator-add-windows-10-a.html
-
-			using (var reg = RegistryKey.OpenBaseKey(RegistryHive.ClassesRoot, RegistryView.Registry64))
-			{
-				RegistryKey setter;
-				setter = reg.CreateSubKey(@"Directory\shell\OpenCmdHereAsAdmin", RegistryKeyPermissionCheck.ReadWriteSubTree);
-				setter.SetValue("", "Open command window here as administrator");
-				//setter.DeleteValue("Extended");
-				setter.SetValue("Icon", "imageres.dll,-5324");
-				setter.Close();
-				
-				setter = reg.CreateSubKey(@"Directory\shell\OpenCmdHereAsAdmin\command", RegistryKeyPermissionCheck.ReadWriteSubTree);
-				setter.SetValue("", "cmd /c echo|set/p=\"%L\"|powershell -NoP -W 1 -NonI -NoL \"SaPs 'cmd' -Args '/c \"\"\"cd /d',$([char]34+$Input+[char]34),'^&^& start /b cmd.exe\"\"\"' -Verb RunAs\"");
-				setter.Close();
-
-				setter = reg.CreateSubKey(@"Directory\Background\shell\OpenCmdHereAsAdmin", RegistryKeyPermissionCheck.ReadWriteSubTree);
-				setter.SetValue("", "Open command window here as administrator");
-				//setter.DeleteValue("Extended");
-				setter.SetValue("Icon", "imageres.dll,-5324");
-				setter.Close();
-
-				setter = reg.CreateSubKey(@"Directory\Background\shell\OpenCmdHereAsAdmin\command", RegistryKeyPermissionCheck.ReadWriteSubTree);
-				setter.SetValue("", "cmd /c echo|set/p=\"%L\"|powershell -NoP -W 1 -NonI -NoL \"SaPs 'cmd' -Args '/c \"\"\"cd /d',$([char]34+$Input+[char]34),'^&^& start /b cmd.exe\"\"\"' -Verb RunAs\"");
-				setter.Close();
-
-				setter = reg.CreateSubKey(@"Drive\shell\OpenCmdHereAsAdmin", RegistryKeyPermissionCheck.ReadWriteSubTree);
-				setter.SetValue("", "Open command window here as administrator");
-				//setter.DeleteValue("Extended");
-				setter.SetValue("Icon", "imageres.dll,-5324");
-				setter.Close();
-
-				setter = reg.CreateSubKey(@"Drive\shell\OpenCmdHereAsAdmin\command", RegistryKeyPermissionCheck.ReadWriteSubTree);
-				setter.SetValue("", "cmd /c echo|set/p=\"%L\"|powershell -NoP -W 1 -NonI -NoL \"SaPs 'cmd' -Args '/c \"\"\"cd /d',$([char]34+$Input+[char]34),'^&^& start /b cmd.exe\"\"\"' -Verb RunAs\"");
-				setter.Close();
-			}
-			prefs.SetPref("RestoreAdminCMDContext", "yes");
-			CheckCMD();
-		}
-
-		private void cmdDisableBtn_Click(object sender, EventArgs e)
-		{
-			Registry.ClassesRoot.DeleteSubKeyTree(@"Directory\shell\OpenCmdHereAsAdmin");
-			Registry.ClassesRoot.DeleteSubKeyTree(@"Directory\Background\shell\OpenCmdHereAsAdmin");
-			Registry.ClassesRoot.DeleteSubKeyTree(@"Drive\shell\OpenCmdHereAsAdmin");
-
-			prefs.SetPref("RestoreAdminCMDContext", "no");
-			CheckCMD();
-		}
-
-
-		private void NumLockSpotCheck()
-		{
-			if (IsKeyLocked(Keys.NumLock))
-			{
-				numLockStatusDot.Visible = true;
+				which.Text = "⬤";
+				which.Font = new Font("Arial", 25, FontStyle.Regular);
+				which.Padding = new Padding(5,0,5,0);
 			}
 			else
 			{
-				numLockStatusDot.Visible = false;
+				which.Text = "⭗";
+				which.Font = new Font("MS Gothic", 29, FontStyle.Bold);
+				which.Padding = new Padding(0, 0, 0, 0);
 			}
 		}
-		private void CheckNumLock()
+
+		private bool FixedF1()
 		{
-			NumLockSpotCheck();
+			// EGADS! It's active!
+			if (regStuff.F1HelpActive())
+			{
+				F1FixerBtnDot.ForeColor = Color.FromArgb(244, 180, 0);
+				F1FixerBtnDot.TextAlign = ContentAlignment.TopRight;
+				F1FixerBtnArea.BackgroundImage = Properties.Resources.yellow_btn_bk_sm;
+				F1FixerButtonBox.Text = "Fix it!";
+				PrefMatch("KillF1Help", "no", F1FixerBtnDot);
+				return false;
+			}
+			else
+			{
+				F1FixerBtnDot.ForeColor = Color.FromArgb(80, 214, 0);
+				F1FixerBtnDot.TextAlign = ContentAlignment.TopLeft;
+				F1FixerBtnArea.BackgroundImage = Properties.Resources.green_btn_bk_sm;
+				F1FixerButtonBox.Text = "Fixed!";
+				PrefMatch("KillF1Help", "yes", F1FixerBtnDot);
+				return true;
+			}
+		}
+
+		private void F1FixerBtnDot_Click(object sender, EventArgs e)
+		{
+			statusWindow.Text = "Clicked F1Fixer";
+			bool itsFixed = FixedF1();
+			if (itsFixed)
+			{
+				// Toggle it
+				regStuff.RestoreF1();
+				// Save the new setting
+				prefs.SetPref("KillF1Help", "no");
+			}
+			else
+			{
+				regStuff.KillF1();
+				prefs.SetPref("KillF1Help", "yes");
+			}
+			// Run it again to update the view
+			FixedF1();
+		}
+
+		private bool FixedCMD()
+		{
+			if (!regStuff.CMDContextOn())
+			{
+				CMDFixerBtnDot.ForeColor = Color.FromArgb(244, 180, 0);
+				CMDFixerBtnDot.TextAlign = ContentAlignment.TopRight;
+				CMDFixerBtnArea.BackgroundImage = Properties.Resources.yellow_btn_bk_sm;
+				CMDFixerButtonBox.Text = "Fix it!";
+				PrefMatch("RestoreAdminCMDContext", "no", CMDFixerBtnDot);
+				return false;
+			}
+			else
+			{
+				CMDFixerBtnDot.ForeColor = Color.FromArgb(80, 214, 0);
+				CMDFixerBtnDot.TextAlign = ContentAlignment.TopLeft;
+				CMDFixerBtnArea.BackgroundImage = Properties.Resources.green_btn_bk_sm;
+				CMDFixerButtonBox.Text = "Fixed!";
+				PrefMatch("RestoreAdminCMDContext", "yes", CMDFixerBtnDot);
+				return true;
+			}
+		}
+
+		private void CMDFixerBtnDot_Click(object sender, EventArgs e)
+		{
+			bool itsFixed = FixedCMD();
+			if (itsFixed)
+			{
+				// Toggle it
+				regStuff.CMDdisable();
+				// Save the new setting
+				prefs.SetPref("RestoreAdminCMDContext", "no");
+			}
+			else
+			{
+				regStuff.CMDenable();
+				prefs.SetPref("RestoreAdminCMDContext", "yes");
+			}
+			// Run it again to update the view
+			FixedCMD();
+		}
+
+		private bool NumLIsOn()
+		{
+			if (Control.IsKeyLocked(Keys.NumLock))
+			{
+				NumLPic.Image = Properties.Resources.num_lock_on;
+				return true;
+			}
+			else
+			{
+				NumLPic.Image = Properties.Resources.num_lock_off;
+				return false;
+			}
+		}
+
+
+		private bool FixedNumL()
+		{
+			NumLIsOn();
 			// It's active!
-			if (prefs.GetPref("ForceNumLockAlwaysOn") != "yes")
+			if (!watchNumL)
 			{
-				numWatchDisableBtn.Enabled = false;
-				numWatchEnableBtn.Enabled = true;
-				numStatus.Text = "NumLock Watcher is disabled. Are you mad?";
-				numStatus.BackColor = Color.FromArgb(255, 232, 0);
+				NumLFixerBtnDot.ForeColor = Color.FromArgb(244, 180, 0);
+				NumLFixerBtnDot.TextAlign = ContentAlignment.TopRight;
+				NumLFixerBtnArea.BackgroundImage = Properties.Resources.yellow_btn_bk_sm;
+				NumLFixerButtonBox.Text = "Fix it!";
+				PrefMatch("ForceNumLockAlwaysOn", "no", NumLFixerBtnDot);
+				return false;
 			}
 			else
 			{
-				numWatchDisableBtn.Enabled = true;
-				numWatchEnableBtn.Enabled = false;
-				numStatus.Text = "NumLock Watcher is watching...";
-				numStatus.BackColor = Color.FromArgb(0, 200, 50);
+				NumLFixerBtnDot.ForeColor = Color.FromArgb(80, 214, 0);
+				NumLFixerBtnDot.TextAlign = ContentAlignment.TopLeft;
+				NumLFixerBtnArea.BackgroundImage = Properties.Resources.green_btn_bk_sm;
+				NumLFixerButtonBox.Text = "Fixed!";
+				PrefMatch("ForceNumLockAlwaysOn", "yes", NumLFixerBtnDot);
+				return true;
 			}
 		}
 
-		private void numWatchDisableBtn_Click(object sender, EventArgs e)
-		{
-			prefs.SetPref("ForceNumLockAlwaysOn", "no");
-
-			CheckNumLock();
-		}
-
-		private void numWatchEnableBtn_Click(object sender, EventArgs e)
-		{
-			prefs.SetPref("ForceNumLockAlwaysOn", "yes");
-
-			CheckNumLock();
+		private void NumLFixerBtnDot_Click(object sender, EventArgs e)
+		{			
+			if (watchNumL)
+			{
+				// Toggle it
+				watchNumL = false;
+				// Save the new setting
+				prefs.SetPref("ForceNumLockAlwaysOn", "no");
+			}
+			else
+			{
+				watchNumL = true;
+				prefs.SetPref("ForceNumLockAlwaysOn", "yes");
+			}
+			// Run it again to update the view
+			FixedNumL();
 		}
 
 		/// <summary>
 		///  MAKE THE THINGS - Group by go away, thumbnail view, show extensions, show hidden files, always expands
 		/// </summary>
 
+
+		public void StartWatcher()
+		{
+			watcher = new Timer();
+			watcher.Tick += new EventHandler(WatchIt);
+			watcher.Interval = 2000; // in miliseconds
+			watcher.Start();
+		}
+
+
+		[DllImport("user32.dll")]
+		static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, int dwExtraInfo);
+		private void PressKb(Keys keyCode)
+		{
+			const int KEYEVENTF_EXTENDEDKEY = 0x1;
+			const int KEYEVENTF_KEYUP = 0x2;
+
+			keybd_event((byte)keyCode, 0x45, KEYEVENTF_EXTENDEDKEY, 0);
+			keybd_event((byte)keyCode, 0x45, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 0);
+		}
+
+		private int count = 0;
+		private void WatchIt(object sender, EventArgs e)
+		{
+			count++;
+			statusWindow.Text = $"in watcher: {count}";
+			// If we're watching Num Lock, force it on
+			if (watchNumL && !NumLIsOn())
+			{
+				// Force it back on
+				PressKb(Keys.NumLock);
+			}
+			// Show Num Lock Status
+			NumLIsOn();
+		}
+
 		private void Form1_Load(object sender, EventArgs e)
 		{
-
-			loggedInUser = GetUsername(Process.GetCurrentProcess().SessionId);
-			NTAccount f = new NTAccount(loggedInUser);
-			loggedInSID = (SecurityIdentifier)f.Translate(typeof(SecurityIdentifier));
-			loggedInSIDStr = loggedInSID.ToString();
-
-			statusWindow.Text = @"
-				name = "+loggedInUser+@"
-				SID = "+ loggedInSIDStr + @"
-			";
-
-			CheckF1();
-			CheckCMD();
-
-	
+			StartWatcher();
+			FixedF1();
+			FixedCMD();
+			// Check prefs file for watcher
+			if (prefs.GetPref("ForceNumLockAlwaysOn") == "yes")
+				watchNumL = true;
+			FixedNumL();
 
 		}
 
