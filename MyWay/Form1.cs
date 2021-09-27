@@ -1,5 +1,6 @@
 using MyWay.Helpers;
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -19,112 +20,94 @@ namespace MyWay
 		private Timer watcher;
 		// Watcher action toggles
 		private bool watchNumL = false;
+		// Translation array from fix shortname to prefsfile name
+		private Dictionary<string, string> prefNames = new Dictionary<string, string> {
+			["F1"] = "KillF1UnhelpfulHelp",
+			["CMD"] = "RestoreAdminCMDContext",
+			["NumL"] = "ForceNumLockAlwaysOn",
+			["Expand"] = "ExpandFolders",
+			["FileExt"] = "ShowFileExtensionsNotJustStupidIcons",
+			["ShowFiles"] = "ShowNonSystemHiddenFiles",
+			["UserNav"] = "RemoveUserNavTurd",
+		};
 
 		public Form1()
 		{
 			InitializeComponent();			
 		}
 
-		// If the preference matches the yesno, everything is fine. Otherwise notate the disparity
-		private void PrefMatch(string prefName, string yesno, Label which)
+		private void SetFixButton(string which, bool isFixed)
 		{
-			// Matches the preference
-			if (prefs.GetPref(prefName) == yesno)
+			var theForm = this.FindForm();
+			Label buttonDot = (Label)theForm.Controls.Find(which+"FixerBtnDot", true)[0];
+			FlowLayoutPanel buttonBk = (FlowLayoutPanel)theForm.Controls.Find(which+"FixerBtnArea", true)[0];
+			GroupBox buttonBox = (GroupBox)theForm.Controls.Find(which+"FixerBtnBox", true)[0];
+
+			buttonDot.ForeColor = isFixed ? Color.FromArgb(80, 214, 0) : Color.FromArgb(244, 180, 0);
+			buttonDot.TextAlign = isFixed ? ContentAlignment.TopLeft : ContentAlignment.TopRight;
+			buttonBk.BackgroundImage = isFixed ? Properties.Resources.green_btn_bk_sm : Properties.Resources.yellow_btn_bk_sm;
+			buttonBox.Text = isFixed ? "Fixed!" : "Fix it!";
+
+			// If our preference matches what the button currnetly is
+			if (prefs.GetPref(prefNames[which]) == (isFixed ? "yes" : "no"))
 			{
-				which.Text = "⬤";
-				which.Font = new Font("Arial", 25, FontStyle.Regular);
-				which.Padding = new Padding(5,0,5,0);
+				buttonDot.Text = "⬤";
+				buttonDot.Font = new Font("Arial", 25, FontStyle.Regular);
+				buttonDot.Padding = new Padding(5, 0, 5, 0);
 			}
 			else
 			{
-				which.Text = "⭗";
-				which.Font = new Font("MS Gothic", 29, FontStyle.Bold);
-				which.Padding = new Padding(0, 0, 0, 0);
+				buttonDot.Text = "⭗";
+				buttonDot.Font = new Font("MS Gothic", 29, FontStyle.Bold);
+				buttonDot.Padding = new Padding(0, 0, 0, 0);
 			}
 		}
 
-		private bool FixedF1()
+		// Telling exactly how something is fixed or not varies by the change so we use this funciton to determine it
+		private bool IsFixed(string which)
 		{
-			// EGADS! It's active!
-			if (regStuff.F1HelpActive())
+			// If we're watching, it's fixed
+			if ("NumL" == which) return watchNumL;
+
+			// For anything registry related
+			return regStuff.IsFixed(which);
+		}
+
+		private void FixIt(string which)
+		{
+			if ("NumL" == which) watchNumL = true;
+			else regStuff.FixIt(which);
+		}
+		private void BreakIt(string which)
+		{
+			if ("NumL" == which) watchNumL = false;
+			else regStuff.BreakIt(which);
+		}
+
+		private void ToggleFix(string which)
+		{
+			if (IsFixed(which))
 			{
-				F1FixerBtnDot.ForeColor = Color.FromArgb(244, 180, 0);
-				F1FixerBtnDot.TextAlign = ContentAlignment.TopRight;
-				F1FixerBtnArea.BackgroundImage = Properties.Resources.yellow_btn_bk_sm;
-				F1FixerButtonBox.Text = "Fix it!";
-				PrefMatch("KillF1Help", "no", F1FixerBtnDot);
-				return false;
+				prefs.SetPref(prefNames[which], "no"); // was fixed, now it's not
+				BreakIt(which);
+				SetFixButton(which, false);
 			}
 			else
 			{
-				F1FixerBtnDot.ForeColor = Color.FromArgb(80, 214, 0);
-				F1FixerBtnDot.TextAlign = ContentAlignment.TopLeft;
-				F1FixerBtnArea.BackgroundImage = Properties.Resources.green_btn_bk_sm;
-				F1FixerButtonBox.Text = "Fixed!";
-				PrefMatch("KillF1Help", "yes", F1FixerBtnDot);
-				return true;
+				prefs.SetPref(prefNames[which], "yes"); // was fixed, now it's not
+				FixIt(which);
+				SetFixButton(which, true);
 			}
 		}
 
 		private void F1FixerBtnDot_Click(object sender, EventArgs e)
 		{
-			statusWindow.Text = "Clicked F1Fixer";
-			bool itsFixed = FixedF1();
-			if (itsFixed)
-			{
-				// Toggle it
-				regStuff.RestoreF1();
-				// Save the new setting
-				prefs.SetPref("KillF1Help", "no");
-			}
-			else
-			{
-				regStuff.KillF1();
-				prefs.SetPref("KillF1Help", "yes");
-			}
-			// Run it again to update the view
-			FixedF1();
-		}
-
-		private bool FixedCMD()
-		{
-			if (!regStuff.CMDContextOn())
-			{
-				CMDFixerBtnDot.ForeColor = Color.FromArgb(244, 180, 0);
-				CMDFixerBtnDot.TextAlign = ContentAlignment.TopRight;
-				CMDFixerBtnArea.BackgroundImage = Properties.Resources.yellow_btn_bk_sm;
-				CMDFixerButtonBox.Text = "Fix it!";
-				PrefMatch("RestoreAdminCMDContext", "no", CMDFixerBtnDot);
-				return false;
-			}
-			else
-			{
-				CMDFixerBtnDot.ForeColor = Color.FromArgb(80, 214, 0);
-				CMDFixerBtnDot.TextAlign = ContentAlignment.TopLeft;
-				CMDFixerBtnArea.BackgroundImage = Properties.Resources.green_btn_bk_sm;
-				CMDFixerButtonBox.Text = "Fixed!";
-				PrefMatch("RestoreAdminCMDContext", "yes", CMDFixerBtnDot);
-				return true;
-			}
+			ToggleFix("F1");
 		}
 
 		private void CMDFixerBtnDot_Click(object sender, EventArgs e)
 		{
-			bool itsFixed = FixedCMD();
-			if (itsFixed)
-			{
-				// Toggle it
-				regStuff.CMDdisable();
-				// Save the new setting
-				prefs.SetPref("RestoreAdminCMDContext", "no");
-			}
-			else
-			{
-				regStuff.CMDenable();
-				prefs.SetPref("RestoreAdminCMDContext", "yes");
-			}
-			// Run it again to update the view
-			FixedCMD();
+			ToggleFix("CMD");
 		}
 
 		private bool NumLIsOn()
@@ -141,53 +124,10 @@ namespace MyWay
 			}
 		}
 
-
-		private bool FixedNumL()
-		{
-			NumLIsOn();
-			// It's active!
-			if (!watchNumL)
-			{
-				NumLFixerBtnDot.ForeColor = Color.FromArgb(244, 180, 0);
-				NumLFixerBtnDot.TextAlign = ContentAlignment.TopRight;
-				NumLFixerBtnArea.BackgroundImage = Properties.Resources.yellow_btn_bk_sm;
-				NumLFixerButtonBox.Text = "Fix it!";
-				PrefMatch("ForceNumLockAlwaysOn", "no", NumLFixerBtnDot);
-				return false;
-			}
-			else
-			{
-				NumLFixerBtnDot.ForeColor = Color.FromArgb(80, 214, 0);
-				NumLFixerBtnDot.TextAlign = ContentAlignment.TopLeft;
-				NumLFixerBtnArea.BackgroundImage = Properties.Resources.green_btn_bk_sm;
-				NumLFixerButtonBox.Text = "Fixed!";
-				PrefMatch("ForceNumLockAlwaysOn", "yes", NumLFixerBtnDot);
-				return true;
-			}
-		}
-
 		private void NumLFixerBtnDot_Click(object sender, EventArgs e)
-		{			
-			if (watchNumL)
-			{
-				// Toggle it
-				watchNumL = false;
-				// Save the new setting
-				prefs.SetPref("ForceNumLockAlwaysOn", "no");
-			}
-			else
-			{
-				watchNumL = true;
-				prefs.SetPref("ForceNumLockAlwaysOn", "yes");
-			}
-			// Run it again to update the view
-			FixedNumL();
+		{
+			ToggleFix("NumL");
 		}
-
-		/// <summary>
-		///  MAKE THE THINGS - Group by go away, thumbnail view, show extensions, show hidden files, always expands
-		/// </summary>
-
 
 		public void StartWatcher()
 		{
@@ -224,17 +164,48 @@ namespace MyWay
 			NumLIsOn();
 		}
 
+		private void ExpandFixerBtnDot_Click(object sender, EventArgs e)
+		{
+			ToggleFix("Expand");
+		}
+
+		private void ExtensionFixerBtnDot_Click(object sender, EventArgs e)
+		{
+			ToggleFix("FileExt");
+		}
+
+		private void HideFileFixerBtnDot_Click(object sender, EventArgs e)
+		{
+			ToggleFix("ShowFiles");
+		}
+
+		private void UserNavFixerBtnDot_Click(object sender, EventArgs e)
+		{
+			ToggleFix("UserNav");
+		}
+
 		private void Form1_Load(object sender, EventArgs e)
 		{
 			StartWatcher();
-			FixedF1();
-			FixedCMD();
 			// Check prefs file for watcher
 			if (prefs.GetPref("ForceNumLockAlwaysOn") == "yes")
 				watchNumL = true;
-			FixedNumL();
+
+			// Initial load. Test each fix and show proper status
+			foreach (var pref in prefNames)
+			{
+				// The button needs to be on
+				if (IsFixed(pref.Key))
+					SetFixButton(pref.Key, true);
+				else
+					SetFixButton(pref.Key, false);
+			}
 
 		}
+
+		/// <summary>
+		///  MAKE THE THINGS - Group by go away, thumbnail view,
+		/// </summary>
 
 
 	}

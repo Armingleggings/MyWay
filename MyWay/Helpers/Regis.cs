@@ -53,13 +53,52 @@ namespace MyWay.Helpers
 			}
 			return username;
 		}
-		public bool F1HelpActive()
+
+		private int GetValueInt(RegistryKey key, string val)
+		{
+			return Convert.ToInt32(key.GetValue(val));
+		}
+
+
+		public bool IsFixed(string which)
+		{
+			if (which == "F1") return F1HelpFixed();
+			if (which == "CMD") return CMDContextOn();
+			if (which == "Expand") return ExpandOn();
+			if (which == "FileExt") return ExtensionOn();
+			if (which == "ShowFiles") return HiddenFilesVisible();	
+			if (which == "UserNav") return UserNavHidden();	
+			// Just in case, return false
+			return false;
+		}
+
+		public void FixIt(string which)
+		{
+			if (which == "F1") KillF1();
+			if (which == "CMD") CMDenable();
+			if (which == "Expand") ExpandEnable();
+			if (which == "FileExt") ExtensionEnable();
+			if (which == "ShowFiles") ShowFilesEnable();
+			if (which == "UserNav") UserNavDisable();
+		}
+
+		public void BreakIt(string which)
+		{
+			if (which == "F1") RestoreF1();
+			if (which == "CMD") CMDdisable();
+			if (which == "Expand") ExpandDisable();
+			if (which == "FileExt") ExtensionDisable();
+			if (which == "ShowFiles") ShowFilesDisable();
+			if (which == "UserNav") UserNavEnable();
+		}
+
+		public bool F1HelpFixed()
 		{
 			using (var hku = RegistryKey.OpenBaseKey(RegistryHive.Users, RegistryView.Registry64))
 			{
 				using (var F1key = hku.OpenSubKey(loggedInSIDStr + @"\SOFTWARE\Classes\TypeLib\{8cec5860-07a1-11d9-b15e-000d56bfe6ee}\1.0\0\win32"))
 				{
-					return F1key == null;
+					return F1key != null;
 				}
 			}
 		}
@@ -139,5 +178,144 @@ namespace MyWay.Helpers
 			Registry.ClassesRoot.DeleteSubKeyTree(@"Directory\Background\shell\OpenCmdHereAsAdmin");
 			Registry.ClassesRoot.DeleteSubKeyTree(@"Drive\shell\OpenCmdHereAsAdmin");
 		}
+
+		internal bool ExpandOn()
+		{
+			using (RegistryKey hku = RegistryKey.OpenBaseKey(RegistryHive.Users, RegistryView.Registry64))
+			{
+				using (RegistryKey explore = hku.OpenSubKey(loggedInSIDStr + @"\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced"))
+				{
+					if (GetValueInt(explore,"NavPaneExpandToCurrentFolder") == 1)
+						return true;
+					return false;
+				}
+			}
+		}
+
+		public void ExpandDisable()
+		{
+			using (RegistryKey hku = RegistryKey.OpenBaseKey(RegistryHive.Users, RegistryView.Registry64))
+			{
+				using (RegistryKey explore = hku.OpenSubKey(loggedInSIDStr + @"\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced", true))
+				{
+					explore.SetValue("NavPaneExpandToCurrentFolder", 0);
+				}
+			}
+		}
+
+		public void ExpandEnable()
+		{
+			using (RegistryKey hku = RegistryKey.OpenBaseKey(RegistryHive.Users, RegistryView.Registry64))
+			{
+				using (RegistryKey explore = hku.OpenSubKey(loggedInSIDStr + @"\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced",true))
+				{
+					explore.SetValue("NavPaneExpandToCurrentFolder", 1);
+				}
+			}
+		}		
+
+		internal bool ExtensionOn()
+		{
+			using (RegistryKey hku = RegistryKey.OpenBaseKey(RegistryHive.Users, RegistryView.Registry64))
+			{
+				using (RegistryKey explore = hku.OpenSubKey(loggedInSIDStr + @"\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced"))
+				{
+					return (GetValueInt(explore, "HideFileExt") == 0);
+				}
+			}
+		}
+
+		public void ExtensionDisable()
+		{
+			using (RegistryKey hku = RegistryKey.OpenBaseKey(RegistryHive.Users, RegistryView.Registry64))
+			{
+				using (RegistryKey explore = hku.OpenSubKey(loggedInSIDStr + @"\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced", true))
+				{
+					explore.SetValue("HideFileExt",1);
+				}
+			}
+		}
+
+		public void ExtensionEnable()
+		{
+			using (RegistryKey hku = RegistryKey.OpenBaseKey(RegistryHive.Users, RegistryView.Registry64))
+			{
+				using (RegistryKey explore = hku.OpenSubKey(loggedInSIDStr + @"\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced", true))
+				{
+					explore.SetValue("HideFileExt", 0);
+				}
+			}
+		}
+
+
+		internal bool HiddenFilesVisible()
+		{
+			using (RegistryKey hku = RegistryKey.OpenBaseKey(RegistryHive.Users, RegistryView.Registry64))
+			{
+				using (RegistryKey explore = hku.OpenSubKey(loggedInSIDStr + @"\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced"))
+				{
+					return (GetValueInt(explore, "Hidden") == 1);
+				}
+			}
+		}
+
+		public void ShowFilesEnable()
+		{
+			using (RegistryKey hku = RegistryKey.OpenBaseKey(RegistryHive.Users, RegistryView.Registry64))
+			{
+				using (RegistryKey explore = hku.OpenSubKey(loggedInSIDStr + @"\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced", true))
+				{
+					explore.SetValue("Hidden", 1);
+				}
+			}
+		}
+
+		public void ShowFilesDisable()
+		{
+			using (RegistryKey hku = RegistryKey.OpenBaseKey(RegistryHive.Users, RegistryView.Registry64))
+			{
+				using (RegistryKey explore = hku.OpenSubKey(loggedInSIDStr + @"\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced", true))
+				{
+					explore.SetValue("Hidden", 2);
+				}
+			}
+		}
+
+
+		internal bool UserNavHidden()
+		{
+			using (RegistryKey hku = RegistryKey.OpenBaseKey(RegistryHive.Users, RegistryView.Registry64))
+			{
+				using (RegistryKey explore = hku.OpenSubKey(loggedInSIDStr + @"\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced"))
+				{
+					if (GetValueInt(explore, "NavPaneShowAllFolders") == 0)
+						return true;
+					return false;
+				}
+			}
+		}
+
+		public void UserNavDisable()
+		{
+			using (RegistryKey hku = RegistryKey.OpenBaseKey(RegistryHive.Users, RegistryView.Registry64))
+			{
+				using (RegistryKey explore = hku.OpenSubKey(loggedInSIDStr + @"\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced", true))
+				{
+					explore.SetValue("NavPaneShowAllFolders", 0);
+				}
+			}
+		}
+
+		public void UserNavEnable()
+		{
+			using (RegistryKey hku = RegistryKey.OpenBaseKey(RegistryHive.Users, RegistryView.Registry64))
+			{
+				using (RegistryKey explore = hku.OpenSubKey(loggedInSIDStr + @"\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced", true))
+				{
+					explore.SetValue("NavPaneShowAllFolders", 1);
+				}
+			}
+		}
+
 	}
 }
