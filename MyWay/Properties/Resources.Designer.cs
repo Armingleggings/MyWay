@@ -99,5 +99,6 @@ namespace MyWay.Properties {
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
+
     }
 }

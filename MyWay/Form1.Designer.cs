@@ -30,6 +30,7 @@ namespace MyWay
 		private void InitializeComponent()
 		{
 			System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form1));
+
 			this.statusWindow = new System.Windows.Forms.TextBox();
 			this.fontDialog1 = new System.Windows.Forms.FontDialog();
 			this.tableLayoutPanel6 = new System.Windows.Forms.TableLayoutPanel();
@@ -748,6 +749,7 @@ namespace MyWay
 			this.pictureBox2.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
 			this.pictureBox2.TabIndex = 1;
 			this.pictureBox2.TabStop = false;
+
 			// 
 			// tableLayoutPanel5
 			// 

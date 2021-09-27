@@ -1,4 +1,4 @@
-﻿using MyWay.Helpers;
+using MyWay.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -10,6 +10,7 @@ namespace MyWay
 {
 	public partial class Form1 : Form
 	{
+
 	
 		// Loads registry functions
 		private Regis regStuff = new Regis();
@@ -30,11 +31,9 @@ namespace MyWay
 			["UserNav"] = "RemoveUserNavTurd",
 		};
 
-
 		public Form1()
 		{
-			InitializeComponent();
-			
+			InitializeComponent();			
 		}
 
 		private void SetFixButton(string which, bool isFixed)
@@ -201,6 +200,7 @@ namespace MyWay
 				else
 					SetFixButton(pref.Key, false);
 			}
+
 		}
 
 		/// <summary>
