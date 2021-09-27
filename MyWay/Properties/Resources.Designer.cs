@@ -73,16 +73,6 @@ namespace MyWay.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
-        internal static System.Drawing.Bitmap greendot {
-            get {
-                object obj = ResourceManager.GetObject("greendot", resourceCulture);
-                return ((System.Drawing.Bitmap)(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type System.Drawing.Bitmap.
-        /// </summary>
         internal static System.Drawing.Bitmap num_lock_off {
             get {
                 object obj = ResourceManager.GetObject("num_lock_off", resourceCulture);
